@@ -1,0 +1,43 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  dotnet:
+    name: C# ASP.NET Core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/RestaurantApi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release --verbosity normal
+
+  python-ai:
+    name: Python AI Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/ai-scripts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/ai-scripts/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: pip install pytest
+      - run: pytest --tb=short
