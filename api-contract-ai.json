@@ -1,0 +1,353 @@
+{
+  "info": {
+    "title": "Sibiu Restaurant App — AI & Recommendations Contract v1.0",
+    "description": "Supplement to the main API contract. Covers AI-powered recommendations, flash deals engine, and admin AI configuration. Designed to start rule-based and evolve into ML-backed without changing the contract.",
+    "baseUrl": "/api/v1",
+    "design_philosophy": "Every AI endpoint has a fallback. If the AI service is down, the system returns manual/static recommendations. Frontend never knows the difference."
+  },
+
+
+  "models": {
+
+    "RecommendationContext": {
+      "description": "What the AI knows when generating a recommendation. Built from session + order history.",
+      "session_id": "uuid",
+      "table_id": "uuid",
+      "current_order_items": [
+        {
+          "menu_item_id": "uuid",
+          "name": "string",
+          "category": "string",
+          "tags": ["string"]
+        }
+      ],
+      "previous_orders_in_session": ["uuid (order IDs, for dessert/drink upsell timing)"],
+      "time_of_day": "string (lunch | afternoon | dinner | late_night)",
+      "day_of_week": "string"
+    },
+
+    "Recommendation": {
+      "id": "uuid",
+      "type": "'pairing' | 'upsell' | 'flash_deal'",
+      "menu_item": {
+        "id": "uuid",
+        "name": "string",
+        "description": "string | null",
+        "price": "number",
+        "image_url": "string | null",
+        "category_name": "string"
+      },
+      "reason": "string (human-readable, e.g. 'Merge excelent cu grătarul comandat' or 'Recomandat de bucătar')",
+      "reason_type": "'chef_pick' | 'pairs_with_order' | 'popular_combo' | 'time_based' | 'flash_deal'",
+      "discount": {
+        "percent": "integer | null",
+        "original_price": "number | null",
+        "discounted_price": "number | null"
+      },
+      "confidence": "number (0.0 to 1.0 — how confident the system is in this rec)",
+      "source": "'ai' | 'manual' | 'rule_based' (for debugging, frontend ignores this)"
+    },
+
+    "FlashDeal": {
+      "id": "uuid",
+      "restaurant_id": "uuid",
+      "menu_item_id": "uuid",
+      "menu_item": {
+        "id": "uuid",
+        "name": "string",
+        "price": "number",
+        "image_url": "string | null"
+      },
+      "discount_percent": "integer",
+      "discounted_price": "number",
+      "trigger": "'post_order' | 'time_based' | 'slow_item'",
+      "countdown_seconds": "integer (e.g. 300 for 5 min)",
+      "expires_at": "ISO 8601 (server-calculated: now + countdown_seconds)",
+      "reason": "string (e.g. 'Adaugă o Papanași cu 20% reducere în următoarele 5 minute!')",
+      "is_active": "boolean",
+      "created_at": "ISO 8601"
+    },
+
+    "AdminAIConfig": {
+      "id": "uuid",
+      "restaurant_id": "uuid",
+      "date": "ISO 8601 date (one config per day)",
+      "daily_prompt": "string (admin's natural language instruction, e.g. 'Azi avem pește proaspăt, recomandă pastrav cu orice comandă de salată. Avem surplus de tiramisu, pune-l ca flash deal.')",
+      "promoted_items": ["uuid (menu item IDs to push)"],
+      "suppressed_items": ["uuid (menu item IDs to NOT recommend today)"],
+      "flash_deal_config": {
+        "enabled": "boolean",
+        "max_deals_per_session": "integer (default 2, don't spam customers)",
+        "countdown_seconds": "integer (default 300)",
+        "discount_percent": "integer (default 15)"
+      },
+      "created_by": "uuid (admin user ID)",
+      "created_at": "ISO 8601"
+    },
+
+    "SimilarityRule": {
+      "id": "uuid",
+      "restaurant_id": "uuid",
+      "source_item_id": "uuid | null (null = category-level rule)",
+      "source_category_id": "uuid | null",
+      "target_item_id": "uuid",
+      "relationship": "'pairs_with' | 'upgrade_to' | 'follow_with' | 'same_vibe'",
+      "weight": "number (0.0 to 1.0, higher = stronger pairing)",
+      "is_auto_generated": "boolean (true if AI created it from order history)",
+      "created_at": "ISO 8601"
+    }
+  },
+
+
+  "endpoints": {
+
+    "CUSTOMER_RECOMMENDATIONS": {
+
+      "GET /sessions/:session_id/recommendations": {
+        "description": "Main recommendation endpoint. Called after customer adds items to cart or after placing an order. Returns contextual suggestions: pairings for current items, upsells, and any active flash deal.",
+        "auth": "session token",
+        "query_params": {
+          "trigger": "'cart_updated' | 'order_placed' | 'browsing' (what triggered this request)",
+          "current_item_ids": "string (comma-separated menu_item UUIDs currently in cart)"
+        },
+        "response_200": {
+          "pairings": {
+            "description": "Items that go well with what the customer selected",
+            "items": ["Recommendation (type='pairing', max 3)"]
+          },
+          "upsells": {
+            "description": "Upgrades or additions (e.g. 'add garlic bread?')",
+            "items": ["Recommendation (type='upsell', max 2)"]
+          },
+          "flash_deal": "FlashDeal | null (only one at a time, only on trigger='order_placed')"
+        },
+        "notes": [
+          "Frontend calls this when cart changes and when an order is submitted",
+          "Flash deals only appear AFTER ordering, not while browsing",
+          "If AI service is unreachable, returns manual pairs_well_with data as fallback",
+          "Results are cached per session+cart combo for 60 seconds"
+        ]
+      },
+
+      "POST /sessions/:session_id/flash-deal/:deal_id/claim": {
+        "description": "Customer claims the flash deal before the countdown expires. Creates a new single-item order with the discount applied.",
+        "auth": "session token",
+        "request": {
+          "selected_modifiers": [
+            {
+              "modifier_id": "uuid",
+              "option_id": "uuid"
+            }
+          ]
+        },
+        "response_201": {
+          "order": "Order (new order with discounted item)",
+          "message": "string (e.g. 'Papanași adăugați la comandă cu 20% reducere!')"
+        },
+        "errors": {
+          "410": "Deal expired (countdown finished)",
+          "409": "Deal already claimed in this session",
+          "404": "Deal not found"
+        }
+      },
+
+      "GET /sessions/:session_id/flash-deal/active": {
+        "description": "Check if there's an active flash deal for this session. Used on page refresh to restore the countdown timer.",
+        "auth": "session token",
+        "response_200": {
+          "flash_deal": "FlashDeal | null",
+          "remaining_seconds": "integer | null (server-calculated from expires_at - now)"
+        }
+      }
+    },
+
+
+    "ADMIN_AI_CONFIG": {
+
+      "GET /admin/restaurants/:restaurant_id/ai-config/today": {
+        "description": "Get today's AI configuration. If none exists, returns defaults.",
+        "auth": "Bearer JWT (role: admin)",
+        "response_200": {
+          "config": "AdminAIConfig | null",
+          "defaults": {
+            "flash_deal_config": {
+              "enabled": true,
+              "max_deals_per_session": 2,
+              "countdown_seconds": 300,
+              "discount_percent": 15
+            }
+          }
+        }
+      },
+
+      "POST /admin/restaurants/:restaurant_id/ai-config": {
+        "description": "Admin sets today's AI prompt and configuration. Only one per day — POST replaces any existing config for today.",
+        "auth": "Bearer JWT (role: admin)",
+        "request": {
+          "daily_prompt": "string (natural language, max 500 chars)",
+          "promoted_items": ["uuid"],
+          "suppressed_items": ["uuid"],
+          "flash_deal_config": {
+            "enabled": "boolean",
+            "max_deals_per_session": "integer",
+            "countdown_seconds": "integer (120-600)",
+            "discount_percent": "integer (5-50)"
+          }
+        },
+        "response_200": {
+          "config": "AdminAIConfig"
+        },
+        "errors": {
+          "400": "Validation error (discount too high, invalid item IDs, etc.)"
+        },
+        "notes": [
+          "The daily_prompt is processed by the AI to adjust recommendation weights",
+          "MVP: parse the prompt for item names and boost/suppress accordingly",
+          "V2: send to LLM to extract structured intents from free-form Romanian text"
+        ]
+      },
+
+      "GET /admin/restaurants/:restaurant_id/ai-config/history": {
+        "description": "Past AI configs for review. Admin can see what worked.",
+        "auth": "Bearer JWT (role: admin)",
+        "query_params": {
+          "days": "integer (default 7, max 30)"
+        },
+        "response_200": {
+          "configs": ["AdminAIConfig"],
+          "performance": [
+            {
+              "date": "ISO 8601 date",
+              "flash_deals_shown": "integer",
+              "flash_deals_claimed": "integer",
+              "recommendation_clicks": "integer",
+              "upsell_revenue": "number"
+            }
+          ]
+        }
+      }
+    },
+
+
+    "ADMIN_SIMILARITY_RULES": {
+
+      "GET /admin/restaurants/:restaurant_id/similarity-rules": {
+        "description": "View all pairing/similarity rules. Mix of manual (admin-created) and auto-generated (from order history patterns).",
+        "auth": "Bearer JWT (role: admin)",
+        "query_params": {
+          "source_item_id": "uuid (optional, filter rules for a specific item)",
+          "is_auto_generated": "boolean (optional filter)"
+        },
+        "response_200": {
+          "rules": ["SimilarityRule"],
+          "pagination": "standard pagination"
+        }
+      },
+
+      "POST /admin/restaurants/:restaurant_id/similarity-rules": {
+        "description": "Admin manually creates a pairing rule.",
+        "auth": "Bearer JWT (role: admin)",
+        "request": {
+          "source_item_id": "uuid | null",
+          "source_category_id": "uuid | null (e.g. 'all grătare items pair with this drink')",
+          "target_item_id": "uuid",
+          "relationship": "'pairs_with' | 'upgrade_to' | 'follow_with' | 'same_vibe'",
+          "weight": "number (0.0 to 1.0, default 0.8 for manual rules)"
+        },
+        "response_201": {
+          "rule": "SimilarityRule"
+        },
+        "notes": [
+          "source_item_id OR source_category_id must be set, not both",
+          "Category-level rules apply to ALL items in that category",
+          "Example: source_category='Feluri principale', target='Vin roșu casa', relationship='pairs_with'"
+        ]
+      },
+
+      "DELETE /admin/restaurants/:restaurant_id/similarity-rules/:rule_id": {
+        "description": "Remove a pairing rule. For auto-generated rules, this teaches the system to not suggest this combo.",
+        "auth": "Bearer JWT (role: admin)",
+        "response_204": "Deleted"
+      },
+
+      "POST /admin/restaurants/:restaurant_id/similarity-rules/auto-generate": {
+        "description": "Trigger auto-generation of similarity rules from order history. Finds items that are frequently ordered together.",
+        "auth": "Bearer JWT (role: admin)",
+        "request": {
+          "min_co_occurrence": "integer (default 5, how many times items must be ordered together)",
+          "lookback_days": "integer (default 30)"
+        },
+        "response_200": {
+          "generated_rules": "integer (count of new rules created)",
+          "rules": ["SimilarityRule (the newly created ones)"]
+        },
+        "notes": [
+          "MVP: simple co-occurrence counting (items ordered in the same session)",
+          "V2: weighted by time proximity, category diversity, repeat customers"
+        ]
+      }
+    },
+
+
+    "REALTIME_AI_EVENTS": {
+
+      "description": "Additional WebSocket events for AI features, sent on existing WS connections.",
+
+      "customer_ws_events": {
+        "flash_deal_available": {
+          "type": "flash_deal_available",
+          "flash_deal": "FlashDeal",
+          "description": "Sent after order is placed and AI decides to offer a deal"
+        },
+        "flash_deal_expired": {
+          "type": "flash_deal_expired",
+          "deal_id": "uuid",
+          "description": "Countdown hit zero, deal no longer claimable"
+        }
+      },
+
+      "staff_ws_events": {
+        "flash_deal_claimed": {
+          "type": "flash_deal_claimed",
+          "deal_id": "uuid",
+          "table_number": "integer",
+          "item_name": "string",
+          "discount_percent": "integer",
+          "description": "Staff knows a discounted order is coming in"
+        }
+      }
+    }
+  },
+
+
+  "ai_engine_internals": {
+    "description": "NOT part of the API contract — this documents how the backend AI service works internally so the backend team knows what to build.",
+
+    "recommendation_pipeline": {
+      "step_1_gather_context": "Build RecommendationContext from session, current cart, time, order history",
+      "step_2_apply_admin_config": "Check today's AdminAIConfig — boost promoted items, suppress suppressed ones",
+      "step_3_query_similarity_rules": "Find rules where source matches any item in cart (item-level first, then category-level fallback)",
+      "step_4_score_candidates": "Score each candidate: rule_weight * admin_boost * time_relevance * (1 - already_ordered_penalty)",
+      "step_5_deduplicate": "Remove items already in cart or already ordered this session",
+      "step_6_format_response": "Top 3 pairings, top 2 upsells, and optionally generate a flash deal"
+    },
+
+    "flash_deal_trigger_logic": {
+      "when": "After order_placed, with 30 second delay (let the order confirmation UX breathe)",
+      "what": "Pick from: promoted_items in today's config, OR items with tag 'surplus' or 'slow_mover', OR highest-margin item not yet ordered",
+      "guard_rails": [
+        "Max N deals per session (from admin config, default 2)",
+        "Never offer a deal on something already ordered",
+        "Never offer a deal if session total is under 30 RON (don't discount tiny orders)",
+        "Don't trigger on the first order of the session (let them settle in)"
+      ]
+    },
+
+    "mvp_vs_v2": {
+      "mvp_recommendation": "Rule-based: similarity_rules table + admin daily config + basic scoring",
+      "v2_recommendation": "Feed daily_prompt to an LLM to extract structured intents; use collaborative filtering on order history; A/B test recommendation strategies",
+      "mvp_flash_deal": "Admin configures which items to deal, system picks timing",
+      "v2_flash_deal": "ML model predicts which deal maximizes claim rate per customer context"
+    }
+  }
+}
