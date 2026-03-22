@@ -48,7 +48,7 @@ jobs:
       - run: npm run build
       - run: npm run test
   deploy:
-    needs: build
+    needs: [build-customer, build-admin]
     runs-on: ubuntu-latest
     environment: production   
     steps:
