@@ -42,7 +42,7 @@ jobs:
       - run: pip install pytest
       - run: pytest --tb=short
   deploy:
-    needs: build
+    needs: [dotnet, python-ai]
     runs-on: ubuntu-latest
     environment: production  
     steps:
