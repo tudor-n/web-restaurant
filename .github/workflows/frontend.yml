@@ -47,3 +47,10 @@ jobs:
       - run: npm run type-check
       - run: npm run build
       - run: npm run test
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production   
+    steps:
+      - name: Deploy
+        run: echo "Deploy step — replace with your actual deploy command"
