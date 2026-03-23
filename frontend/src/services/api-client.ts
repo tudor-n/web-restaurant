@@ -1,13 +1,8 @@
-// src/services/api-client.ts
 import type { Product, Category, Recommendation, FlashDeal } from '@shared/types/models';
 
-// Citim URL-ul de bază din variabilele de mediu Vite
+
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-/**
- * Funcție ajutătoare pentru a face fetch și a extrage automat JSON-ul,
- * aruncând o eroare clară dacă request-ul eșuează.
- */
 async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
@@ -18,12 +13,12 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    // Încercăm să extragem mesajul de eroare din backend, altfel dăm statusul
+
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || errorData.error || `API Error: ${response.status}`);
   }
 
-  // Pentru request-urile care returnează 204 No Content
+
   if (response.status === 204) {
     return {} as T;
   }
@@ -31,7 +26,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
-// Obiectul central care expune toate metodele de care are nevoie frontend-ul
+
 export const apiClient = {
   // --- Meniu ---
   getMenu: () =>
