@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: restaurant
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: devpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d restaurant"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend-api:
+    build: ./backend/RestaurantApi
+    ports:
+      - "5000:5000"
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Database=restaurant;Username=dev;Password=devpass"
+      AiService__BaseUrl: "http://ai-service:8000"
+      AllowedOrigins__0: "http://localhost:3000"
+      AllowedOrigins__1: "http://localhost:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/RestaurantApi:/src
+
+  ai-service:
+    build: ./backend/ai-scripts
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/ai-scripts:/app
+
+  frontend-customer:
+    build: ./frontend/frontend-customer
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: "http://localhost:5000"
+      VITE_WS_URL: "ws://localhost:5000"
+    volumes:
+      - ./frontend/frontend-customer:/app
+      - /app/node_modules
+
+  frontend-admin:
+    build: ./frontend/frontend-admin
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_API_URL: "http://localhost:5000"
+    volumes:
+      - ./frontend/frontend-admin:/app
+      - /app/node_modules
+
+volumes:
+  pgdata:
+
+networks:
+  default:
+    name: restaurant-net
