@@ -4,6 +4,7 @@ import { ref, computed} from 'vue'
 import { useCartStore } from '@/stores/useCartStore'
 import MenuList from '@/components/MenuList.vue'
 import Cart from '@/components/Cart.vue';
+import FlashDealBanner from '@/components/FlashDealBanner.vue';
 
 
 const cartStore = useCartStore()
@@ -18,6 +19,7 @@ const totalItems = computed(() => {
 
 
 <template>
+  <FlashDealBanner />
   <div class="min-h-screen bg-gray-50 pb-24 relative">
 
     <header class="bg-white shadow-sm p-4 sticky top-0 z-10">

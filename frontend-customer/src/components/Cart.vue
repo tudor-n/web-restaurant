@@ -2,11 +2,26 @@
 <script setup lang="ts">
 
 import { useCartStore } from '@/stores/useCartStore'
+import RecommendationWidget from './RecommendationWidget.vue'
+import type { FlashDeal } from '@shared/types/models'
+import { useFlashDealStore } from '@/stores/useFlashDealStore'
 
 const cartStore = useCartStore()
+const flashDealStore = useFlashDealStore()
 
 const submitOrder = () => {
   alert(`Comanda în valoare de ${cartStore.total} RON a fost trimisă către bucătărie!`)
+
+  const mockDeal = {
+    id: 'mock-deal-1',
+    order_id: 'comanda-curenta-123',
+    menu_item_id: 'produs-papanasi',
+    discount_price: 14,
+    expires_at: new Date(Date.now() + 60000).toISOString(),
+    status: 'pending'
+  } as unknown as FlashDeal
+
+  flashDealStore.setDeal(mockDeal)
 }
 </script>
 
@@ -55,6 +70,8 @@ const submitOrder = () => {
         <span>Total:</span>
         <span class="text-brand">{{ cartStore.total }} RON</span>
       </div>
+
+      <RecommendationWidget v-if="cartStore.items.length > 0" />
 
       <button
         @click="submitOrder"

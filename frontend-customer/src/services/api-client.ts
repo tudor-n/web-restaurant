@@ -1,5 +1,5 @@
-import type { Product, Category, Recommendation, FlashDeal } from '@shared/types/models';
-
+import type { Recommendation, FlashDeal } from '@shared/types/models';
+//import type { Product, Category} from '@shared/types/models';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
