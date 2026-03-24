@@ -1,4 +1,4 @@
-import type { UUID, SimilarityRelationship, FlashDealConfig } from './models';
+import type { UUID, SimilarityRelationship, FlashDealConfig } from '../types/models';
 
 export interface CreateOrderRequest {
   table_id: UUID;
