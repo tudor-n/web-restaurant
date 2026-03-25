@@ -8,8 +8,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
-{ "ConnectionStrings": { "Default": "Host=localhost;Database=restaurant;..." } }
-
 builder.Services.AddHttpClient("AiService", client =>
 {
     var baseUrl = builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
@@ -23,7 +21,8 @@ builder.Services.AddScoped<SimilarityService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.PropertyNamingPolicy =
+            System.Text.Json.JsonNamingPolicy.CamelCase;
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -31,7 +30,9 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSignalR();
 
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>()
     ?? ["http://localhost:3000", "http://localhost:3001"];
 
 builder.Services.AddCors(options =>
