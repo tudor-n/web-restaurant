@@ -17,7 +17,7 @@ public class Product{
     [Column(TypeName = "decimal(10,2)")]
     public decimal Price { get; set; }
 
-    public string ImageUrl { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; } = null;
 
     public bool? IsAvailable { get; set; } = true;
 }
