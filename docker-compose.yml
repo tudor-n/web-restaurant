@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: dev
       POSTGRES_PASSWORD: devpass
     ports:
-      - "5432:5432"
+      - "5433:5432" # <--- CHANGED: Avoids your Mac's local Postgres collision
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,12 +18,12 @@ services:
   backend-api:
     build: ./backend/RestaurantApi
     ports:
-      - "5000:5000"
+      - "5005:5000" # <--- CHANGED: Avoids your Mac's AirPlay Receiver collision
     environment:
-      ConnectionStrings__Default: "Host=postgres;Database=restaurant;Username=dev;Password=devpass"
-      AiService__BaseUrl: "http://ai-service:8000"
-      AllowedOrigins__0: "http://localhost:3000"
-      AllowedOrigins__1: "http://localhost:3001"
+      ConnectionStringsDefault: "Host=postgres;Database=restaurant;Username=dev;Password=devpass"
+      AiServiceBaseUrl: "http://ai-service:8000/"
+      AllowedOrigins0: "http://localhost:3000/"
+      AllowedOrigins1: "http://localhost:3001/"
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,8 +42,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      VITE_API_URL: "http://localhost:5000"
-      VITE_WS_URL: "ws://localhost:5000"
+      VITE_API_URL: "http://localhost:5005/" 
+      VITE_WS_URL: "ws://localhost:5005"   
     volumes:
       - ./frontend-customer:/app
       - /app/node_modules
@@ -53,7 +53,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      VITE_API_URL: "http://localhost:5000"
+      VITE_API_URL: "http://localhost:5005/" 
     volumes:
       - ./frontend-admin:/app
       - /app/node_modules
