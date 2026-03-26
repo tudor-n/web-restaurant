@@ -2,13 +2,16 @@
 import { ref, computed, onMounted } from 'vue'
 import { useCartStore } from '@/stores/useCartStore'
 import { useSessionStore } from '@/stores/useSessionStore'
-import { initSession } from '@/services/api-client'
+import { useWebSocket } from '@/composables/useWebSocket'
 import MenuList from '@/components/MenuList.vue'
 import Cart from '@/components/Cart.vue';
 import FlashDealBanner from '@/components/FlashDealBanner.vue';
+import RecommendationWidget from '@/components/RecommendationWidget.vue';
 
 const cartStore = useCartStore()
 const sessionStore = useSessionStore()
+
+useWebSocket()
 
 const isCartModalOpen = ref(false)
 
@@ -18,12 +21,13 @@ const totalItems = computed(() => {
 
 
 onMounted(async () => {
-  try {
-    const response = await initSession('token-qr-simulat')
-
-    sessionStore.setSession(response.table_id, response.order_id, response.session_token)
-  } catch (error) {
-    console.error('Eroare la crearea sesiunii:', error)
+  if (!sessionStore.tableId) {
+    try {
+      await sessionStore.initializeSession('token-test-masa-1')
+      console.log('Sesiune inițializată!', sessionStore.orderId)
+    } catch (e) {
+      console.error('Nu am putut inițializa sesiunea', e)
+    }
   }
 })
 </script>
@@ -39,6 +43,7 @@ onMounted(async () => {
 
     <main class="container mx-auto p-4 max-w-3xl">
       <MenuList />
+      <RecommendationWidget />
     </main>
 
     <div

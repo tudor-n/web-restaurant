@@ -1,77 +1,104 @@
-import type {
-  MenuResponse,
-  SessionResponse,
-  SubmitOrderResponse
-} from '@shared/types/api-responses'
+import type { Recommendation, FlashDeal } from '@shared/types/models';
 
 
-const USE_MOCKS = true;
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  if (!response.ok) {
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-  })
-  if (!res.ok) throw await res.json().catch(() => ({}))
-  return res.json() as Promise<T>
-}
-
-
-
-export const initSession = async (qrToken: string): Promise<SessionResponse> => {
-  if (USE_MOCKS) {
-    await new Promise(r => setTimeout(r, 300))
-    return { table_id: 'masa-5', order_id: 'comanda-123', session_token: 'fake-session-token' }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `API Error: ${response.status}`);
   }
-  return apiFetch<SessionResponse>(`/api/tables/${qrToken}/session`)
+
+
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  return response.json();
 }
 
-export const fetchMenu = async (): Promise<MenuResponse> => {
-  if (USE_MOCKS) {
-    await new Promise(r => setTimeout(r, 500))
+
+export const apiClient = {
+  // --- Meniu ---
+  // getMenu: () =>
+  //   fetcher<{ categories: Category[]; products: Product[] }>('/api/menu'),
+
+  // --- Meniu ---
+  getMenu: async () => {
+    // Simulam o mica intarziere de retea (500ms) ca sa vedem starea de "Se incarca..."
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Returnam date statice care respecta interfetele Category si Product
     return {
       categories: [
+        { id: 'c1', name: 'Feluri Principale', sort_order: 1 },
+        { id: 'c2', name: 'Băuturi', sort_order: 2 }
+      ],
+      products: [
         {
-          id: 'c1', name: 'Feluri Principale', sort_order: 1,
-          products: [
-            { id: 'p1', category_id: 'c1', name: 'Ceafă de porc la grătar', description: 'Servită cu cartofi prăjiți', price: 45, image_url: null, is_available: true },
-            { id: 'p2', category_id: 'c1', name: 'Șnițel de pui', description: 'Piept de pui crocant', price: 38, image_url: null, is_available: true }
-          ]
+          id: 'p1', category_id: 'c1', name: 'Ceafă de porc la grătar',
+          description: 'Servită cu cartofi prăjiți și salată',
+          price: 45, image_url: '', is_available: true
         },
         {
-          id: 'c2', name: 'Băuturi', sort_order: 2,
-          products: [
-            { id: 'p3', category_id: 'c2', name: 'Limonadă cu mentă', description: '400ml', price: 18, image_url: null, is_available: true },
-            { id: 'p4', category_id: 'c2', name: 'Bere Ursus Premium', description: '500ml', price: 12, image_url: null, is_available: false }
-          ]
+          id: 'p2', category_id: 'c1', name: 'Șnițel de pui',
+          description: 'Piept de pui crocant, panko',
+          price: 38, image_url: '', is_available: true
+        },
+        {
+          id: 'p3', category_id: 'c2', name: 'Limonadă cu mentă',
+          description: 'Lămâie proaspătă, miere, mentă, 400ml',
+          price: 18, image_url: '', is_available: true
+        },
+        {
+          id: 'p4', category_id: 'c2', name: 'Bere Ursus Premium',
+          description: 'La sticlă, 500ml',
+          price: 12, image_url: '', is_available: false // Acesta va avea butonul dezactivat!
         }
       ]
-    }
-  }
-  return apiFetch<MenuResponse>('/api/menu')
-}
+    };
+  },
 
-export const updateCartItems = async (orderId: string, items: { id: string, quantity: number }[]): Promise<void> => {
-  if (USE_MOCKS) {
-    await new Promise(r => setTimeout(r, 300))
-    console.log(`[MOCK] Coș actualizat pentru comanda ${orderId}`, items)
-    return
-  }
-  return apiFetch<void>(`/api/orders/${orderId}/items`, {
-    method: 'PATCH',
-    body: JSON.stringify(items),
-  })
-}
+  // --- Sesiune / Masă ---
+  initSession: (qrToken: string) =>
+    fetcher<{ table_id: string; order_id: string }>(`/api/tables/${qrToken}/session`),
 
-export const submitOrder = async (orderId: string): Promise<SubmitOrderResponse> => {
-  if (USE_MOCKS) {
-    await new Promise(r => setTimeout(r, 800))
-    console.log(`[MOCK] Comanda ${orderId} a fost trimisă!`)
+  // --- Comenzi ---
+  updateCartItems: (orderId: string, items: { product_id: string; quantity: number }[]) =>
+    fetcher<void>(`/api/orders/${orderId}/items`, {
+      method: 'PATCH',
+      body: JSON.stringify({ items }),
+    }),
 
-    return { message: "Comanda trimisă cu succes", order: { id: orderId, status: 'submitted' } as any }
-  }
-  return apiFetch<SubmitOrderResponse>(`/api/orders/${orderId}/submit`, { method: 'POST' })
-}
+  submitOrder: (orderId: string) =>
+    fetcher<{ status: string }>(`/api/orders/${orderId}/submit`, {
+      method: 'POST'
+    }),
+
+  // --- Recomandări & AI ---
+  getRecommendations: (orderId: string, cartItemIds: string[]) => {
+    const query = new URLSearchParams({ current_item_ids: cartItemIds.join(',') }).toString();
+
+    // Am adăugat flash_deal: FlashDeal | null aici 👇
+    return fetcher<{
+      pairings: { items: Recommendation[] };
+      upsells: { items: Recommendation[] };
+      flash_deal: FlashDeal | null;
+    }>(`/api/orders/${orderId}/recommendations?${query}`);
+  },
+
+  claimFlashDeal: (orderId: string, dealId: string) =>
+    fetcher<void>(`/api/orders/${orderId}/claim-deal`, {
+      method: 'POST',
+      body: JSON.stringify({ deal_id: dealId }),
+    }),
+};

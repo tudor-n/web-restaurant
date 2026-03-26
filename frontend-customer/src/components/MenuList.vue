@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted} from 'vue'
-import { fetchMenu } from '@/services/api-client'
+import { apiClient } from '@/services/api-client'
 import { useCartStore } from '@/stores/useCartStore'
 import type { Category, Product } from '@shared/types/models'
 
@@ -18,14 +18,13 @@ const getProductsByCategory = (categoryId: string) => {
 onMounted(async () => {
   try {
     isLoading.value = true
-    const response = await fetchMenu()
+
+    const response = await apiClient.getMenu()
 
     categories.value = response.categories.sort((a, b) =>
       (a.sort_order || 0) - (b.sort_order || 0)
     )
-
-    products.value = response.categories.flatMap(c => c.products)
-
+    products.value = response.products
   } catch (err) {
     if (err instanceof Error) {
       error.value = err.message
