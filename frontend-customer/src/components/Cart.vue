@@ -1,22 +1,36 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <script setup lang="ts">
-
 import { useCartStore } from '@/stores/useCartStore'
+import { useSessionStore } from '@/stores/useSessionStore'
+import { submitOrder as apiSubmitOrder } from '@/services/api-client'
 import RecommendationWidget from './RecommendationWidget.vue'
 import type { FlashDeal } from '@shared/types/models'
 import { useFlashDealStore } from '@/stores/useFlashDealStore'
 
 const cartStore = useCartStore()
+const sessionStore = useSessionStore()
 const flashDealStore = useFlashDealStore()
 
-const submitOrder = () => {
-  alert(`Comanda în valoare de ${cartStore.total} RON a fost trimisă către bucătărie!`)
+const submitOrder = async () => {
+  if (!sessionStore.orderId) {
+    return alert('Eroare: Sesiune invalidă.')
+  }
+
+  try {
+    await apiSubmitOrder(sessionStore.orderId)
+    alert(`Comanda în valoare de ${cartStore.total} RON a fost trimisă către bucătărie!`)
+
+    cartStore.clearCart()
+  } catch (error) {
+    alert('Eroare la trimiterea comenzii!')
+    console.error(error)
+  }
 
   const mockDeal = {
     id: 'mock-deal-1',
     order_id: 'comanda-curenta-123',
     menu_item_id: 'produs-papanasi',
-    discount_price: 14,
+    discounted_price: 14,
     expires_at: new Date(Date.now() + 60000).toISOString(),
     status: 'pending'
   } as unknown as FlashDeal
@@ -27,7 +41,7 @@ const submitOrder = () => {
 
 <template>
   <div class="cart-container flex flex-col h-full bg-white">
-    <h2 class="text-xl font-bold p-4 border-b">Comanda ta</h2>
+
 
     <div v-if="cartStore.items.length === 0" class="flex-1 p-8 flex flex-col items-center justify-center text-gray-500">
       <span class="text-4xl mb-2">🛒</span>

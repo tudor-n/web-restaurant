@@ -1,13 +1,14 @@
 <script setup lang="ts">
-
-import { ref, computed} from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useCartStore } from '@/stores/useCartStore'
+import { useSessionStore } from '@/stores/useSessionStore'
+import { initSession } from '@/services/api-client'
 import MenuList from '@/components/MenuList.vue'
 import Cart from '@/components/Cart.vue';
 import FlashDealBanner from '@/components/FlashDealBanner.vue';
 
-
 const cartStore = useCartStore()
+const sessionStore = useSessionStore()
 
 const isCartModalOpen = ref(false)
 
@@ -15,6 +16,16 @@ const totalItems = computed(() => {
   return cartStore.items.reduce((sum, item) => sum + item.quantity, 0)
 })
 
+
+onMounted(async () => {
+  try {
+    const response = await initSession('token-qr-simulat')
+
+    sessionStore.setSession(response.table_id, response.order_id, response.session_token)
+  } catch (error) {
+    console.error('Eroare la crearea sesiunii:', error)
+  }
+})
 </script>
 
 

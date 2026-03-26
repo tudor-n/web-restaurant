@@ -1,33 +1,32 @@
 <script setup lang="ts">
-
 import { ref, onMounted} from 'vue'
-import { apiClient } from '@/services/api-client'
+import { fetchMenu } from '@/services/api-client'
 import { useCartStore } from '@/stores/useCartStore'
 import type { Category, Product } from '@shared/types/models'
 
 const cartStore = useCartStore()
-
 
 const categories = ref<Category[]>([])
 const products = ref<Product[]>([])
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 
-
 const getProductsByCategory = (categoryId: string) => {
   return products.value.filter(p => p.category_id === categoryId)
 }
 
 onMounted(async () => {
-  try{
+  try {
     isLoading.value = true
-    const response = await apiClient.getMenu()
+    const response = await fetchMenu()
 
-   categories.value = response.categories.sort((a, b) =>
+    categories.value = response.categories.sort((a, b) =>
       (a.sort_order || 0) - (b.sort_order || 0)
     )
-    products.value = response.products
-  }catch (err) {
+
+    products.value = response.categories.flatMap(c => c.products)
+
+  } catch (err) {
     if (err instanceof Error) {
       error.value = err.message
     } else {
@@ -37,7 +36,6 @@ onMounted(async () => {
     isLoading.value = false
   }
 })
-
 </script>
 
 <template>

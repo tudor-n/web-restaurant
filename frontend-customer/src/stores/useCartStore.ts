@@ -1,18 +1,19 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Product } from '@shared/types/models'
+import { updateCartItems } from '@/services/api-client'
+import { useSessionStore } from './useSessionStore'
 
 export interface CartItem extends Product {
   quantity: number
 }
 
-
 export const useCartStore = defineStore('cart', () => {
   const items = ref<CartItem[]>([])
+  const sessionStore = useSessionStore()
 
   const total = computed(() => {
     return items.value.reduce((sum, item) => sum + item.price * item.quantity, 0)
-
   })
 
   function addItem(product: Product){
@@ -25,7 +26,6 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function removeItem(productId: string) {
-
     const item = items.value.find((i) => i.id === productId)
     if (item) {
       if (item.quantity > 1) {
@@ -40,8 +40,21 @@ export const useCartStore = defineStore('cart', () => {
     items.value = []
   }
 
-  return { items, total , addItem , removeItem , clearCart}
+
+  watch(items, async (newItems) => {
+    if (!sessionStore.orderId) return;
+
+    const payload = newItems.map(item => ({
+      id: item.id,
+      quantity: item.quantity
+    }))
+
+    try {
+      await updateCartItems(sessionStore.orderId, payload)
+    } catch (error) {
+      console.error('Eroare la salvarea coșului pe server:', error)
+    }
+  }, { deep: true })
+
+  return { items, total, addItem, removeItem, clearCart }
 })
-
-
-
