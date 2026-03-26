@@ -84,7 +84,7 @@ const claimDeal = async () => {
       is_available: true
     }
 
-    await cartStore.addItem(productToAdd)
+    cartStore.addLocalItemOnly(productToAdd)
 
 
     flashDealStore.clearDeal()

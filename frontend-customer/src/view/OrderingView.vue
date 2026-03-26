@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useCartStore } from '@/stores/useCartStore'
 import { useSessionStore } from '@/stores/useSessionStore'
 import { useWebSocket } from '@/composables/useWebSocket'
@@ -8,6 +9,7 @@ import Cart from '@/components/Cart.vue';
 import FlashDealBanner from '@/components/FlashDealBanner.vue';
 import RecommendationWidget from '@/components/RecommendationWidget.vue';
 
+const route = useRoute()
 const cartStore = useCartStore()
 const sessionStore = useSessionStore()
 
@@ -19,11 +21,13 @@ const totalItems = computed(() => {
   return cartStore.items.reduce((sum, item) => sum + item.quantity, 0)
 })
 
-
 onMounted(async () => {
-  if (!sessionStore.tableId) {
+
+  const tokenFromUrl = (route.params.qrToken as string) || 'token-test-masa-1'
+
+  if (!sessionStore.tableId || sessionStore.qrToken !== tokenFromUrl) {
     try {
-      await sessionStore.initializeSession('token-test-masa-1')
+      await sessionStore.initializeSession(tokenFromUrl)
       console.log('Sesiune inițializată!', sessionStore.orderId)
     } catch (e) {
       console.error('Nu am putut inițializa sesiunea', e)

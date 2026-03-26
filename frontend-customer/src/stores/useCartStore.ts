@@ -62,11 +62,22 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  function addLocalItemOnly(product: Product) {
+    const existingItem = items.value.find((i) => i.id === product.id)
+    if (existingItem) {
+      existingItem.quantity++
+    } else {
+      items.value.push({ ...product, quantity: 1 })
+    }
+  }
+
   function clearCart() {
     items.value = []
   }
 
-  return { items, total , addItem, removeItem, clearCart}
+
+
+  return { items, total , addItem, removeItem, clearCart, addLocalItemOnly}
 
 })
 

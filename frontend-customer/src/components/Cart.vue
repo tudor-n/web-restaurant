@@ -32,6 +32,11 @@ async function submitOrder() {
 
     submitSuccess.value = true
     cartStore.clearCart()
+
+
+    sessionStorage.removeItem('orderId')
+    sessionStore.orderId = null
+
   } catch (error) {
     if (error instanceof Error) {
       submitError.value = error.message
