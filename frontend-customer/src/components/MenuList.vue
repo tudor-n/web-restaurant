@@ -31,10 +31,35 @@ onMounted(async () => {
 
     const response = await apiClient.getMenu()
 
-    categories.value = response.categories.sort((a, b) =>
-      (a.sort_order || 0) - (b.sort_order || 0)
-    )
-    products.value = response.products
+    categories.value = response.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      sort_order: c.sortOrder
+    })).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+
+
+    const allProducts: Product[] = []
+
+    response.forEach((cat: any) => {
+      if (cat.products && Array.isArray(cat.products)) {
+        cat.products.forEach((p: any) => {
+          allProducts.push({
+            id: p.id,
+            category_id: cat.id,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            image_url: p.imageUrl || '',
+
+            is_available: p.isAvailable !== undefined ? p.isAvailable : true
+          })
+        })
+      }
+    })
+
+
+    products.value = allProducts
+
   } catch (err) {
     if (err instanceof Error) {
       error.value = err.message

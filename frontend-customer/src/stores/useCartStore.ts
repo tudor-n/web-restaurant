@@ -17,24 +17,32 @@ export const useCartStore = defineStore('cart', () => {
     return items.value.reduce((sum, item) => sum + item.price * item.quantity, 0)
   })
 
+
+  let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+
+
   async function syncCartWithBackend() {
     if(!sessionStore.orderId){
       console.warn('Nu există o comandă activă (orderId lipsește).')
       return
     }
 
-
-  const payload = items.value.map((item) => ({
-      product_id: item.id,
+    const payload = items.value.map((item) => ({
+      productId: item.id,
       quantity: item.quantity
     }))
 
-  try {
-      await apiClient.updateCartItems(sessionStore.orderId, payload)
-    } catch (error) {
-      console.error('Eroare la sincronizarea coșului pe backend:', error)
-    }
 
+    if (syncTimeout) clearTimeout(syncTimeout)
+
+
+    syncTimeout = setTimeout(async () => {
+      try {
+        await apiClient.updateCartItems(sessionStore.orderId!, payload)
+      } catch (error) {
+        console.error('Eroare la sincronizarea coșului pe backend:', error)
+      }
+    }, 500)
   }
 
 

@@ -1,4 +1,4 @@
-import type { Recommendation, FlashDeal , Category, Product} from '@shared/types/models';
+import type { Recommendation, FlashDeal} from '@shared/types/models';
 
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
@@ -32,29 +32,29 @@ export const apiClient = {
 
   // --- Meniu ---
  getMenu: () =>
-    fetcher<{ categories: Category[]; products: Product[] }>('/api/menu'),
+    fetcher<any[]>('/api/menu'),
 
   // --- Sesiune / Masă ---
   initSession: (qrToken: string) =>
-    fetcher<{ table_id: string; order_id: string }>(`/api/tables/${qrToken}/session`),
+    fetcher<{ tableId: string; activeOrder: { id: string } }>(`/api/tables/${qrToken}/session`),
 
   // --- Comenzi ---
-  updateCartItems: (orderId: string, items: { product_id: string; quantity: number }[]) =>
+ updateCartItems: (orderId: string, items: { productId: string; quantity: number }[]) =>
     fetcher<void>(`/api/orders/${orderId}/items`, {
       method: 'PATCH',
       body: JSON.stringify({ items }),
     }),
 
   submitOrder: (orderId: string) =>
-    fetcher<{ status: string }>(`/api/orders/${orderId}/submit`, {
-      method: 'POST'
+    fetcher<void>(`/api/orders/${orderId}/submit`, {
+      method: 'PATCH',
     }),
 
-  // --- Recomandări & AI ---
+
   getRecommendations: (orderId: string, cartItemIds: string[]) => {
     const query = new URLSearchParams({ current_item_ids: cartItemIds.join(',') }).toString();
 
-    // Am adăugat flash_deal: FlashDeal | null aici 👇
+
     return fetcher<{
       pairings: { items: Recommendation[] };
       upsells: { items: Recommendation[] };
