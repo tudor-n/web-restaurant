@@ -1,7 +1,7 @@
 namespace RestaurantApi.DTOs.Requests;
 
 
-public class CreatOrderRequest
+public class CreateOrderRequest
 {
     public Guid TableId {get;set;}
     public List<OrderItemRequest> Items {get;set;} =[];
